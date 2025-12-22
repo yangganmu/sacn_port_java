@@ -6,13 +6,13 @@ import java.util.Vector;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.LongAdder;
 
-public class Main {
+公共 class Main {
     private static final int SOCKET_TIMEOUT = 1500;
     private static final int PORT_COUNT = 65536;
     private static final int BATCH_COUNT = 2000;
     private static final Semaphore SEMAPHORE = new Semaphore(BATCH_COUNT);
     private static final LongAdder PROCESSED_COUNT = new LongAdder();
-    private static final Vector<Integer> OPENED_PORTS = new Vector<>(20);
+    private static final ArrayList<Integer> OPENED_PORTS = new ArrayList<>(20);
 
     public static void main(String[] args) {
         final String ipStr;
@@ -74,7 +74,9 @@ public class Main {
             socket.setReuseAddress(true);
             socket.connect(new InetSocketAddress(inetAddress, port), SOCKET_TIMEOUT);
             if (socket.isConnected()) {
-                OPENED_PORTS.add(port);
+                synchronized (OPENED_PORTS) {
+                    OPENED_PORTS.add(port);
+                }
             }
         } catch (Exception _) {
         }
