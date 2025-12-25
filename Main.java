@@ -6,7 +6,6 @@ import java.util.Scanner;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.LongAdder;
 
-
 public class Main {
     private static final int SOCKET_TIMEOUT = 1500;
     private static final int PORT_COUNT = 65536;
@@ -74,7 +73,9 @@ public class Main {
             socket.setTcpNoDelay(true);
             socket.connect(new InetSocketAddress(inetAddress, port), SOCKET_TIMEOUT);
             if (socket.isConnected()) {
-                OPENED_PORTS.add(port);
+                synchronized (OPENED_PORTS) {
+                    OPENED_PORTS.add(port);
+                }
             }
         } catch (Exception _) {
         }
