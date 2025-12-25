@@ -1,12 +1,13 @@
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Scanner;
-import java.util.Vector;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.LongAdder;
 
-公共 class Main {
+
+public class Main {
     private static final int SOCKET_TIMEOUT = 1500;
     private static final int PORT_COUNT = 65536;
     private static final int BATCH_COUNT = 2000;
@@ -19,20 +20,18 @@ import java.util.concurrent.atomic.LongAdder;
         if (args.length != 0) {
             ipStr = args[0];
         } else {
-            System.out.println("要扫描的IP地址:");
+            System.out.print("要扫描的IP地址: ");
             ipStr = new Scanner(System.in).nextLine();
         }
         final InetAddress inetAddress;
         try {
             inetAddress = InetAddress.getByName(ipStr);
         } catch (Exception _) {
-            System.out.println(ipStr + "找不到该IP地址： " + ipStr);
+            System.out.println("找不到该IP地址： " + ipStr);
             System.exit(1);
             return;
         }
-
         final Thread printThread = Thread.startVirtualThread(Main::printProgress);
-
         for (int i = 0; i < PORT_COUNT; ++i) {
             try {
                 SEMAPHORE.acquire();
@@ -72,11 +71,10 @@ import java.util.concurrent.atomic.LongAdder;
     private static void scanPort(InetAddress inetAddress, int port) {
         try (Socket socket = new Socket()) {
             socket.setReuseAddress(true);
+            socket.setTcpNoDelay(true);
             socket.connect(new InetSocketAddress(inetAddress, port), SOCKET_TIMEOUT);
             if (socket.isConnected()) {
-                synchronized (OPENED_PORTS) {
-                    OPENED_PORTS.add(port);
-                }
+                OPENED_PORTS.add(port);
             }
         } catch (Exception _) {
         }
