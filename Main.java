@@ -17,10 +17,12 @@ public class Main {
     public static void main(String[] args) {
         final String ipStr;
         if (args.length != 0) {
-            ipStr = args[0];
+            ipStr = args[0].trim();
         } else {
             System.out.print("要扫描的IP地址: ");
-            ipStr = new Scanner(System.in).nextLine();
+            try (Scanner scanner = new Scanner(System.in)) {
+                ipStr = scanner.nextLine().trim();
+            }
         }
         final InetAddress inetAddress;
         try {
@@ -40,9 +42,18 @@ public class Main {
             }
             final int port = i;
             Thread.startVirtualThread(() -> {
-                scanPort(inetAddress, port);
-                SEMAPHORE.release();
-                PROCESSED_COUNT.add(1);
+                try (Socket socket = new Socket()) {
+                    socket.setSoLinger(true, 0);
+                    socket.connect(new InetSocketAddress(inetAddress, port), SOCKET_TIMEOUT);
+                    synchronized (OPENED_PORTS) {
+                        OPENED_PORTS.add(port);
+                    }
+                } catch (Exception _) {
+
+                } finally {
+                    SEMAPHORE.release();
+                    PROCESSED_COUNT.add(1);
+                }
             });
         }
         try {
@@ -56,28 +67,14 @@ public class Main {
         long processed = 0;
         while (processed < PORT_COUNT) {
             processed = PROCESSED_COUNT.sum();
-            System.out.printf("进度:%d/%d (%.2f%c) | 开放端口: %d\r", processed, PORT_COUNT, ((double) processed) / PORT_COUNT * 100, '%', OPENED_PORTS.size());
+            System.out.print("进度: " + processed + "/" + PORT_COUNT + " (" + ((processed * 100) >> 16) + "%) | 开放端口数: " + OPENED_PORTS.size() + "\r");
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         }
-        System.out.println("进度:" + processed + "/" + PORT_COUNT + " (100.00%) | 开放的端口个数:" + OPENED_PORTS.size());
-        System.out.println("开放的端口:" + OPENED_PORTS);
-    }
-
-    private static void scanPort(InetAddress inetAddress, int port) {
-        try (Socket socket = new Socket()) {
-            socket.setReuseAddress(true);
-            socket.setTcpNoDelay(true);
-            socket.connect(new InetSocketAddress(inetAddress, port), SOCKET_TIMEOUT);
-            if (socket.isConnected()) {
-                synchronized (OPENED_PORTS) {
-                    OPENED_PORTS.add(port);
-                }
-            }
-        } catch (Exception _) {
-        }
+        OPENED_PORTS.sort(Integer::compareTo);
+        System.out.println("\n开放的端口:" + OPENED_PORTS);
     }
 }
