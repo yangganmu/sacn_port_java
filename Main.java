@@ -46,10 +46,13 @@ public class Main {
                 }
             });
         }
-        int processed = 0;
-        while (processed < PORT_COUNT) {
-            processed = PROCESSED_COUNT.get();
-            System.out.print("进度: " + processed + "/" + PORT_COUNT + " (" + ((processed * 100) >> 16) + "%) | 开放端口数: " + OPENED_PORTS.size() + "\r");
+        int printProcessed = 0;
+        while (printProcessed < PORT_COUNT) {
+            printProcessed = PROCESSED_COUNT.get();
+            if (printProcessed > PORT_COUNT) {
+                printProcessed = PORT_COUNT;
+            }
+            System.out.print("\r进度: " + printProcessed + "/" + PORT_COUNT + " (" + ((printProcessed * 100) >> 16) + "%) | 开放端口数: " + OPENED_PORTS.size());
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
