@@ -3,16 +3,14 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Scanner;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
     private static final int SOCKET_TIMEOUT = 1500;
     private static final int PORT_COUNT = 65536;
-    private static final int BATCH_COUNT = 2000;
-    private static final Semaphore SEMAPHORE = new Semaphore(BATCH_COUNT);
-    private static final LongAdder PROCESSED_COUNT = new LongAdder();
+    private static final int CONCURRENCY = 2000;
     private static final ArrayList<Integer> OPENED_PORTS = new ArrayList<>(20);
+    private static final AtomicInteger PROCESSED_COUNT = new AtomicInteger(0);
 
     public static void main(String[] args) {
         final String ipStr;
@@ -32,41 +30,25 @@ public class Main {
             System.exit(1);
             return;
         }
-        final Thread printThread = Thread.startVirtualThread(Main::printProgress);
-        for (int i = 0; i < PORT_COUNT; ++i) {
-            try {
-                SEMAPHORE.acquire();
-            } catch (InterruptedException e) {
-                PROCESSED_COUNT.add(1);
-                continue;
-            }
-            final int port = i;
+        for (int i = 0; i < CONCURRENCY; i++) {
             Thread.startVirtualThread(() -> {
-                try (Socket socket = new Socket()) {
-                    socket.setSoLinger(true, 0);
-                    socket.connect(new InetSocketAddress(inetAddress, port), SOCKET_TIMEOUT);
-                    synchronized (OPENED_PORTS) {
-                        OPENED_PORTS.add(port);
-                    }
-                } catch (Exception _) {
+                int port;
+                while ((port = PROCESSED_COUNT.getAndIncrement()) < PORT_COUNT) {
+                    try (Socket socket = new Socket()) {
+                        socket.setSoLinger(true, 0);
+                        socket.connect(new InetSocketAddress(inetAddress, port), SOCKET_TIMEOUT);
+                        synchronized (OPENED_PORTS) {
+                            OPENED_PORTS.add(port);
+                        }
+                    } catch (Exception _) {
 
-                } finally {
-                    SEMAPHORE.release();
-                    PROCESSED_COUNT.add(1);
+                    }
                 }
             });
         }
-        try {
-            printThread.join();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private static void printProgress() {
-        long processed = 0;
+        int processed = 0;
         while (processed < PORT_COUNT) {
-            processed = PROCESSED_COUNT.sum();
+            processed = PROCESSED_COUNT.get();
             System.out.print("进度: " + processed + "/" + PORT_COUNT + " (" + ((processed * 100) >> 16) + "%) | 开放端口数: " + OPENED_PORTS.size() + "\r");
             try {
                 Thread.sleep(1000);
