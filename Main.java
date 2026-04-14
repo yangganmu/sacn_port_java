@@ -8,8 +8,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Main {
     private static final int SOCKET_TIMEOUT = 1500;
     private static final int PORT_COUNT = 65536;
-    private static final int CONCURRENCY = 2000;
-    private static final ArrayList<Integer> OPENED_PORTS = new ArrayList<>(20);
+    private static final int CONCURRENCY = 2048;
+    private static final ArrayList<Integer> OPENED_PORTS = new ArrayList<>(16);
     private static final AtomicInteger PROCESSED_COUNT = new AtomicInteger(0);
 
     public static void main(String[] args) {
@@ -33,7 +33,11 @@ public class Main {
         for (int i = 0; i < CONCURRENCY; i++) {
             Thread.startVirtualThread(() -> {
                 int port;
-                while ((port = PROCESSED_COUNT.getAndIncrement()) < PORT_COUNT) {
+                while (PROCESSED_COUNT.get() < PORT_COUNT) {
+                    port = PROCESSED_COUNT.getAndIncrement();
+                    if (port > PORT_COUNT) {
+                        break;
+                    }
                     try (Socket socket = new Socket()) {
                         socket.setSoLinger(true, 0);
                         socket.connect(new InetSocketAddress(inetAddress, port), SOCKET_TIMEOUT);
@@ -49,12 +53,9 @@ public class Main {
         int printProcessed = 0;
         while (printProcessed < PORT_COUNT) {
             printProcessed = PROCESSED_COUNT.get();
-            if (printProcessed > PORT_COUNT) {
-                printProcessed = PORT_COUNT;
-            }
             System.out.print("\r进度: " + printProcessed + "/" + PORT_COUNT + " (" + ((printProcessed * 100) >> 16) + "%) | 开放端口数: " + OPENED_PORTS.size());
             try {
-                Thread.sleep(1000);
+                Thread.sleep(500);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
